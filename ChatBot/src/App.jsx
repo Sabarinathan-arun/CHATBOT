@@ -148,53 +148,61 @@ function App() {
   };
 
   const startRecording = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      recorder.start();
-      console.log("Recording started");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    recorder.start();
+    console.log("Recording started");
 
-      recorder.addEventListener("dataavailable", async (event) => {
-        const audioBlob = event.data;
-        const base64Audio = await audioBlobToBase64(audioBlob);
+    recorder.addEventListener("dataavailable", async (event) => {
+      const audioBlob = event.data;
+      console.log("Audio blob:", audioBlob);
 
-        try {
-          const response = await axios.post(
-            `https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
-            {
-              config: {
-                encoding: "WEBM_OPUS",
-                sampleRateHertz: 48000,
-                languageCode: "en-US",
-              },
-              audio: {
-                content: base64Audio,
-              },
-            }
-          );
+      const base64Audio = await audioBlobToBase64(audioBlob);
+      console.log("Base64 audio:", base64Audio);
 
-          if (response.data.results && response.data.results.length > 0) {
-            setTranscription(
-              response.data.results[0].alternatives[0].transcript
-            );
-            setInput(response.data.results[0].alternatives[0].transcript);
-          } else {
-            setTranscription("No transcription available");
+      // Check the size and duration of the audio blob
+      console.log("Audio blob size:", audioBlob.size);
+      console.log("Audio blob type:", audioBlob.type);
+
+      try {
+        const response = await axios.post(
+          `https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
+          {
+            config: {
+              encoding: "WEBM_OPUS", // Ensure this matches the actual encoding
+              sampleRateHertz: 48000, // Ensure this matches the actual sample rate
+              languageCode: "en-US",
+            },
+            audio: {
+              content: base64Audio,
+            },
           }
-        } catch (error) {
-          console.error(
-            "Error with Google Speech-to-Text API:",
-            error.response.data
-          );
-        }
-      });
+        );
 
-      setRecording(true);
-      setMediaRecorder(recorder);
-    } catch (error) {
-      console.error("Error getting user media:", error);
-    }
+        console.log("Google Speech-to-Text API response:", response.data);
+
+        if (response.data.results && response.data.results.length > 0) {
+          const transcript = response.data.results[0].alternatives[0].transcript;
+          console.log("Transcript:", transcript);
+          setTranscription(transcript);
+          setInput(transcript);
+        } else {
+          setTranscription("No transcription available");
+          console.log("No transcription available");
+        }
+      } catch (error) {
+        console.error("Error with Google Speech-to-Text API:", error.response?.data || error.message);
+      }
+    });
+
+    setRecording(true);
+    setMediaRecorder(recorder);
+  } catch (error) {
+    console.error("Error getting user media:", error);
+  }
   };
+
 
   const stopRecording = () => {
     if (mediaRecorder) {
